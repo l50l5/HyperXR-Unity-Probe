@@ -1,0 +1,35 @@
+name: Stage standalone Unity sample
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/stage-sample.yml']
+permissions:
+  contents: write
+jobs:
+  stage:
+    if: github.repository == 'l50l5/HyperXR-Unity-Probe'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Stage the pinned public Unity example and test overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -e ProjectSettings/ProjectVersion.txt; then
+            echo 'A Unity project is already present; leaving it unchanged.'
+            exit 0
+          fi
+          stage="$RUNNER_TEMP/HyperXRUnityProbe"
+          bash setup/stage_unity_probe.sh "$stage"
+          # Keep this repo's readme and workflow. Public sample code and notices are separate.
+          for f in .gitattributes .gitignore Assets Packages ProjectSettings LICENSE.md; do
+            cp -a -- "$stage/$f" .
+          done
+          test -s Assets/Editor/HyperXRAndroidProbeBuild.cs
+          test -s Assets/XRI_Examples/Scenes/Station_01_Setup_Isolated.unity
+          test -s ProjectSettings/ProjectVersion.txt
+          git add -- .gitattributes .gitignore Assets Packages ProjectSettings LICENSE.md
+          git diff --cached --check -- setup
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Stage pinned Unity Android XR sample'
+          git push origin HEAD:refs/heads/main
